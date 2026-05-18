@@ -2,22 +2,45 @@
 // 关键点：
 //   - cwd 设为 /tmp，避免 claude 加载项目自己的 CLAUDE.md（会污染上下文 + 多花钱）
 //   - --append-system-prompt 比 --system-prompt 便宜，因为默认 prompt 在 Anthropic 端被缓存
-//   - --model haiku 够用且最便宜
 //   - --no-session-persistence 防止会话历史变长
-
-import { spawn, spawnSync } from "node:child_process";
-import os from "node:os";
+//
+// 边缘运行时兼容性：
+//   - Cloudflare Workers / Vercel Edge / Deno Deploy 等 Edge 环境没有 node:child_process。
+//   - 这里用 eval("require") 延迟加载，防止打包器（webpack/turbopack）静态分析时
+//     把 node:child_process 拉进 bundle —— 否则非 Node 环境下构建会直接失败。
+//   - 运行时如果 require 失败（边缘运行时），isClaudeCliAvailable() 返回 false，
+//     resolveProvider 会自动 fallback 到 OpenRouter 或 BYOK，行为无感。
 
 import type { LLMProvider } from "./types";
 
+type NodeCP = typeof import("node:child_process");
+type NodeOS = typeof import("node:os");
+
 const DEFAULT_MODEL = "claude-sonnet-4-6";
+
+function lazyRequire<T>(specifier: string): T | null {
+  try {
+    // eslint-disable-next-line no-eval
+    const req = eval("require") as NodeRequire;
+    return req(specifier) as T;
+  } catch {
+    return null;
+  }
+}
+
+const cp = lazyRequire<NodeCP>("node:child_process");
+const osMod = lazyRequire<NodeOS>("node:os");
 
 // 检测本机 claude CLI 是否可用。结果缓存到模块作用域（启动一次定生死，运行时不变）。
 let _cliAvailable: boolean | null = null;
 export function isClaudeCliAvailable(): boolean {
   if (_cliAvailable !== null) return _cliAvailable;
+  if (!cp) {
+    _cliAvailable = false;
+    return false;
+  }
   try {
-    const res = spawnSync("claude", ["--version"], {
+    const res = cp.spawnSync("claude", ["--version"], {
       stdio: "ignore",
       timeout: 2000,
     });
@@ -52,8 +75,17 @@ interface CliResult {
 }
 
 function spawnClaude({ system, user, model }: SpawnArgs): Promise<string> {
+  if (!cp || !osMod) {
+    return Promise.reject(
+      new Error(
+        "claude CLI 在当前运行时不可用（缺少 Node child_process / os 模块）。" +
+          "这通常发生在 Cloudflare Workers / Vercel Edge 等边缘运行时。" +
+          "请改用 BYOK（浏览器 /settings 粘 OpenRouter key）或服务端 OPENROUTER_API_KEY。"
+      )
+    );
+  }
   return new Promise((resolve, reject) => {
-    const child = spawn(
+    const child = cp.spawn(
       "claude",
       [
         "-p",
@@ -66,7 +98,7 @@ function spawnClaude({ system, user, model }: SpawnArgs): Promise<string> {
         system,
       ],
       {
-        cwd: os.tmpdir(),
+        cwd: osMod.tmpdir(),
         stdio: ["pipe", "pipe", "pipe"],
         env: { ...process.env },
       }
@@ -74,8 +106,8 @@ function spawnClaude({ system, user, model }: SpawnArgs): Promise<string> {
 
     let stdout = "";
     let stderr = "";
-    child.stdout.on("data", (chunk) => (stdout += chunk));
-    child.stderr.on("data", (chunk) => (stderr += chunk));
+    child.stdout!.on("data", (chunk) => (stdout += chunk));
+    child.stderr!.on("data", (chunk) => (stderr += chunk));
 
     child.on("error", (err) => {
       reject(
@@ -114,6 +146,6 @@ function spawnClaude({ system, user, model }: SpawnArgs): Promise<string> {
       }
     });
 
-    child.stdin.end(user);
+    child.stdin!.end(user);
   });
 }
