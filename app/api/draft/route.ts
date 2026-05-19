@@ -5,6 +5,8 @@ import { callStructured } from "@/lib/claude";
 import { ResumeDataSchema, ExperienceDocumentSchema } from "@/lib/schemas";
 import { STEP2_RESUME_DRAFT } from "@/lib/prompts";
 
+export const runtime = "edge";
+
 const BodySchema = z.object({
   experience: ExperienceDocumentSchema,
   jd: z.string().min(20),

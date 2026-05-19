@@ -5,6 +5,8 @@ import { callStructured } from "@/lib/claude";
 import { FitCheckResultSchema, ExperienceDocumentSchema } from "@/lib/schemas";
 import { STEP1_FIT_CHECK } from "@/lib/prompts";
 
+export const runtime = "edge";
+
 const BodySchema = z.object({
   experience: ExperienceDocumentSchema,
   jd: z.string().min(20),

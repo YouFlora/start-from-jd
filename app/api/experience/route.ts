@@ -5,6 +5,8 @@ import { callStructured } from "@/lib/claude";
 import { ExperienceDocumentSchema } from "@/lib/schemas";
 import { STEP0_EXPERIENCE_EXTRACT } from "@/lib/prompts";
 
+export const runtime = "edge";
+
 const BodySchema = z.object({
   rawText: z.string().min(20, "原始素材太短，至少 20 字"),
   lang: z.enum(["zh", "en"]).default("zh"),

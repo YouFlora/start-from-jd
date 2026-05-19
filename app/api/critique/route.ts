@@ -5,6 +5,8 @@ import { callStructured } from "@/lib/claude";
 import { CritiqueReportSchema, ResumeDataSchema } from "@/lib/schemas";
 import { STEP3_CRITIQUE } from "@/lib/prompts";
 
+export const runtime = "edge";
+
 const BodySchema = z.object({
   resume: ResumeDataSchema,
   jd: z.string().min(20).optional(),

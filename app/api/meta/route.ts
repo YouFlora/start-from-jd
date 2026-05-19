@@ -10,6 +10,8 @@ import {
   getServerProviderName,
 } from "@/lib/claude";
 
+export const runtime = "edge";
+
 interface MetaResponse {
   // server 端 provider；如果 server 完全没配置，返回 "none"（部署到 Vercel 但没填任何 env 的场景）
   provider: "cli" | "openrouter" | "none";

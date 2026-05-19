@@ -5,6 +5,8 @@ import { callStructured } from "@/lib/claude";
 import { ResumeDataSchema } from "@/lib/schemas";
 import { STEP4_ATS_POLISH } from "@/lib/prompts";
 
+export const runtime = "edge";
+
 const BodySchema = z.object({
   resume: ResumeDataSchema,
   jd: z.string().min(20).optional(),
