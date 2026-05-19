@@ -27,7 +27,7 @@
 | AI | 两模式 LLM provider（cli / openrouter）+ **BYOK 自带 key**（见下文） |
 | 状态 | zustand + persist（localStorage） |
 | 校验 | zod |
-| 部署目标 | Vercel |
+| 部署目标 | Cloudflare Pages |
 
 模型默认 `claude-sonnet-4-6`，通过 `ANTHROPIC_MODEL` 可覆盖。
 
@@ -129,7 +129,7 @@ resumeProject/
 - [ ] Step 2：调 `/api/draft` + A4 简历预览
 - [ ] Step 3：调 `/api/critique` + 侧边批评列表 + 「迭代」「最终打磨」两个动作
 - [ ] Step 4：调 `/api/polish` + 导出工具栏（PDF / DOCX / TXT）+ 全局语言切换
-- [ ] 部署 Vercel + 写部署文档
+- [x] 部署 Cloudflare Pages（含 edge runtime 适配 + nodejs_compat flag）
 
 ## 开发流程
 
@@ -190,7 +190,7 @@ OpenRouter provider 下 `callStructured` 启用容忍降级：JSON 解析失败 
 
 - 必须先 `claude /login`（OAuth 即可，不需要 API key）
 - Sonnet 调用约 $0.04 / 30s；Opus 调用约 $0.06 / 30-60s（计入用户 Claude Code 订阅）
-- **不能直接部署上 Vercel**：serverless 环境没有 `claude` CLI。部署前两条路：（a）让用户走 BYOK（推荐），（b）在 Vercel env 配 `OPENROUTER_API_KEY` 让所有访问者免费试用你的额度
+- **不能部署在无服务器环境**（Cloudflare Pages / Vercel 都不行）：serverless 环境没有 `claude` CLI。部署前两条路：（a）让用户走 BYOK（推荐），（b）在云端 env 配 `OPENROUTER_API_KEY` 让所有访问者免费试用你的额度
 - 如果用户机器跑 dev server 时连不上 localhost API（502 Bad Gateway），是 Claude Code 注入的 `http_proxy` 拦截，curl 请加 `--noproxy "*"`
 
 ## 给 Claude 的工作风格指引
