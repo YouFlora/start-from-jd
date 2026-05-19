@@ -49,6 +49,12 @@ Next.js 14 · TypeScript · Tailwind CSS · OpenRouter / Anthropic Claude · zod
 
 ---
 
+## 致谢
+
+核心想法与 prompt 来自 [evalyu214.github.io](https://evalyu214.github.io/)
+
+---
+
 ## License
 
 MIT
