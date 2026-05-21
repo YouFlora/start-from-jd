@@ -15,13 +15,15 @@ import { ResumePreview } from "@/components/resume-preview";
 import { StepNav } from "@/components/step-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useT } from "@/lib/i18n";
+import { resumeDocxFilename, resumeToDocxBlob } from "@/lib/resume-docx";
 import { useAppStore } from "@/lib/store";
 import { apiHeaders, isPlaceholder } from "@/lib/utils";
-import type { Lang, ResumeData } from "@/types/resume";
+import type { ResumeData } from "@/types/resume";
 
 export default function PolishPage() {
+  const t = useT();
   const lang = useAppStore((s) => s.lang);
-  const setLang = useAppStore((s) => s.setLang);
   const resume = useAppStore((s) => s.resume);
   const setResume = useAppStore((s) => s.setResume);
   const jd = useAppStore((s) => s.jd);
@@ -52,7 +54,7 @@ export default function PolishPage() {
     } finally {
       setLoading(false);
     }
-  }, [resume, jd, lang, setResume]);
+  }, [resume, jd, lang, setResume, userKey]);
 
   const downloadTxt = useCallback(() => {
     if (!resume) return;
@@ -68,6 +70,27 @@ export default function PolishPage() {
     URL.revokeObjectURL(url);
   }, [resume]);
 
+  const [docxBusy, setDocxBusy] = useState(false);
+  const downloadDocx = useCallback(async () => {
+    if (!resume) return;
+    setDocxBusy(true);
+    try {
+      const blob = await resumeToDocxBlob(resume, lang);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = resumeDocxFilename(resume);
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(
+        t.polish.docxError(err instanceof Error ? err.message : String(err))
+      );
+    } finally {
+      setDocxBusy(false);
+    }
+  }, [resume, t, lang]);
+
   return (
     <>
       <StepNav />
@@ -76,19 +99,17 @@ export default function PolishPage() {
           <Button variant="ghost" size="sm" asChild>
             <Link href="/critique" className="gap-1">
               <ArrowLeft className="h-4 w-4" />
-              上一步
+              {t.common.prevStep}
             </Link>
           </Button>
-          <LangToggle lang={lang} onChange={setLang} />
         </div>
 
         <div className="mx-auto max-w-4xl space-y-6 no-print">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">ATS 打磨</h1>
-            <p className="mt-2 text-muted-foreground">
-              基于诊断结果做最终一次合规打磨：关键词对齐 JD、量化收紧、
-              排版按内容密度自适应单页。导出 PDF（浏览器打印）/ TXT。
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {t.polish.title}
+            </h1>
+            <p className="mt-2 text-muted-foreground">{t.polish.subtitle}</p>
           </div>
 
           {!resume && <NoResumeWarning />}
@@ -96,7 +117,7 @@ export default function PolishPage() {
           {error && (
             <Card className="border-destructive/40 bg-destructive/5">
               <CardContent className="pt-6 text-sm text-destructive">
-                生成失败：{error}
+                {t.common.error(error)}
               </CardContent>
             </Card>
           )}
@@ -110,18 +131,18 @@ export default function PolishPage() {
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  打磨中（约 60-120s）...
+                  {t.polish.submitLoading}
                 </>
               ) : polished ? (
-                "再次打磨"
+                t.polish.submitDone
               ) : (
-                "运行 ATS 打磨"
+                t.polish.submit
               )}
             </Button>
             {resume && (
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-muted-foreground">
-                  打印时取消勾选「页眉和页脚」、缩放 100%
+                  {t.polish.printHint}
                 </span>
                 <Button
                   variant="outline"
@@ -129,20 +150,24 @@ export default function PolishPage() {
                   onClick={() => window.print()}
                 >
                   <Printer className="h-4 w-4" />
-                  打印 / PDF
+                  {t.polish.printBtn}
                 </Button>
                 <Button variant="outline" size="sm" onClick={downloadTxt}>
                   <FileText className="h-4 w-4" />
-                  下载 TXT
+                  {t.polish.txtBtn}
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  disabled
-                  title="DOCX 导出待实现"
+                  onClick={downloadDocx}
+                  disabled={docxBusy}
                 >
-                  <Download className="h-4 w-4" />
-                  DOCX（待实现）
+                  {docxBusy ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  {t.polish.docxBtn}
                 </Button>
               </div>
             )}
@@ -152,17 +177,14 @@ export default function PolishPage() {
             <Card className="border-amber-500/40 bg-amber-500/5">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">
-                  仍存在缺失字段（{resume.missing.length}）
+                  {t.polish.missingTitle(resume.missing.length)}
                 </CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                ATS 打磨不会编内容补缺。投递前需在原始素材里补齐这些事实，
-                重跑 Step 0 → 4：
+                {t.polish.missingDesc}
                 <ul className="ml-5 mt-2 list-disc space-y-1">
                   {resume.missing.map((m, i) => (
-                    <li key={i}>
-                      {m.replace(/^MISSING(?=[:：\s])/, "TBD")}
-                    </li>
+                    <li key={i}>{m.replace(/^MISSING(?=[:：\s])/, "TBD")}</li>
                   ))}
                 </ul>
               </CardContent>
@@ -181,47 +203,20 @@ export default function PolishPage() {
 }
 
 function NoResumeWarning() {
+  const t = useT();
   return (
     <Card className="border-amber-500/40 bg-amber-500/5">
       <CardContent className="flex items-start gap-3 pt-6 text-sm">
         <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
         <div>
-          还没有简历草稿。先回到{" "}
+          {t.polish.noResume}{" "}
           <Link href="/draft" className="font-medium underline">
-            简历草稿
-          </Link>{" "}
-          完成 Step 2，再回来打磨。
+            {t.polish.noResumeLink}
+          </Link>
+          .
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function LangToggle({
-  lang,
-  onChange,
-}: {
-  lang: Lang;
-  onChange: (l: Lang) => void;
-}) {
-  return (
-    <div className="inline-flex rounded-md border border-input bg-background p-0.5">
-      {(["zh", "en"] as const).map((l) => (
-        <button
-          key={l}
-          type="button"
-          onClick={() => onChange(l)}
-          className={
-            "rounded px-2.5 py-1 text-xs font-medium transition-colors " +
-            (lang === l
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground")
-          }
-        >
-          {l === "zh" ? "中文" : "EN"}
-        </button>
-      ))}
-    </div>
   );
 }
 

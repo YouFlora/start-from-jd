@@ -17,12 +17,15 @@ export const ExperienceItemSchema = z.object({
 
 export const ExperienceDocumentSchema = z.object({
   summary: z.string(),
-  items: z.array(ExperienceItemSchema),
-  skills: z.object({
-    hard: z.array(z.string()),
-    soft: z.array(z.string()),
-  }),
-  languages: z.array(z.string()),
+  items: z.array(ExperienceItemSchema).default([]),
+  // 免费档模型常漏 skills.hard / skills.soft，整个 skills 也偶尔漏，加 default 兜底。
+  skills: z
+    .object({
+      hard: z.array(z.string()).default([]),
+      soft: z.array(z.string()).default([]),
+    })
+    .default({ hard: [], soft: [] }),
+  languages: z.array(z.string()).default([]),
 });
 
 export const FitCheckResultSchema = z.object({
@@ -81,10 +84,12 @@ export const ResumeDataSchema = z.object({
       })
     )
     .nullish(),
-  skills: z.object({
-    hard: z.array(z.string()),
-    soft: z.array(z.string()),
-  }),
+  skills: z
+    .object({
+      hard: z.array(z.string()).default([]),
+      soft: z.array(z.string()).default([]),
+    })
+    .default({ hard: [], soft: [] }),
   missing: z.array(z.string()).nullish(),
 });
 

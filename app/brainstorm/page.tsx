@@ -5,6 +5,7 @@ import { useCallback, useRef, useState, type DragEvent } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  Download,
   FileText,
   Loader2,
   Mic,
@@ -18,29 +19,34 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useSpeechRecognition } from "@/lib/hooks/use-speech-recognition";
+import { langName, useT } from "@/lib/i18n";
+import {
+  experienceDocxFilename,
+  experienceToDocxBlob,
+} from "@/lib/resume-docx";
 import { useAppStore } from "@/lib/store";
 import { apiHeaders, cn } from "@/lib/utils";
-import type { ExperienceDocument, Lang } from "@/types/resume";
+import type { ExperienceDocument } from "@/types/resume";
 
 type Tab = "voice" | "file" | "text";
-
-const TABS: { id: Tab; label: string; icon: typeof Mic }[] = [
-  { id: "voice", label: "录音", icon: Mic },
-  { id: "file", label: "上传文件", icon: Upload },
-  { id: "text", label: "直接输入", icon: FileText },
-];
 
 const ACCEPT_EXT = [".txt", ".md", ".markdown"];
 const MAX_FILE_BYTES = 200_000;
 
 export default function BrainstormPage() {
+  const t = useT();
   const lang = useAppStore((s) => s.lang);
-  const setLang = useAppStore((s) => s.setLang);
   const rawInput = useAppStore((s) => s.rawInput);
   const setRawInput = useAppStore((s) => s.setRawInput);
   const experience = useAppStore((s) => s.experience);
   const setExperience = useAppStore((s) => s.setExperience);
   const userKey = useAppStore((s) => s.userKey);
+
+  const tabs: { id: Tab; label: string; icon: typeof Mic }[] = [
+    { id: "voice", label: t.brainstorm.tabs.voice, icon: Mic },
+    { id: "file", label: t.brainstorm.tabs.file, icon: Upload },
+    { id: "text", label: t.brainstorm.tabs.text, icon: FileText },
+  ];
 
   const [tab, setTab] = useState<Tab>("text");
   const [loading, setLoading] = useState(false);
@@ -81,18 +87,20 @@ export default function BrainstormPage() {
     } finally {
       setLoading(false);
     }
-  }, [rawInput, lang, setExperience]);
+  }, [rawInput, lang, setExperience, userKey]);
 
   const onFileChosen = useCallback(
     async (file: File) => {
       setFileError(null);
       const lowerName = file.name.toLowerCase();
       if (!ACCEPT_EXT.some((ext) => lowerName.endsWith(ext))) {
-        setFileError(`仅支持 ${ACCEPT_EXT.join(" / ")} 文件`);
+        setFileError(t.brainstorm.fileBadExt(ACCEPT_EXT.join(" / ")));
         return;
       }
       if (file.size > MAX_FILE_BYTES) {
-        setFileError(`文件超过 ${Math.round(MAX_FILE_BYTES / 1000)}KB 上限`);
+        setFileError(
+          t.brainstorm.fileTooLarge(Math.round(MAX_FILE_BYTES / 1000))
+        );
         return;
       }
       try {
@@ -102,7 +110,7 @@ export default function BrainstormPage() {
         setFileError(err instanceof Error ? err.message : String(err));
       }
     },
-    [appendToRaw]
+    [appendToRaw, t]
   );
 
   return (
@@ -113,32 +121,32 @@ export default function BrainstormPage() {
           <Button variant="ghost" size="sm" asChild>
             <Link href="/" className="gap-1">
               <ArrowLeft className="h-4 w-4" />
-              返回首页
+              {t.common.backHome}
             </Link>
           </Button>
-          <LangToggle lang={lang} onChange={setLang} />
         </div>
 
         <div className="mx-auto max-w-3xl space-y-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">头脑风暴</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {t.brainstorm.title}
+            </h1>
             <p className="mt-2 text-muted-foreground">
-              说话、上传文件或直接输入——把你做过的事原原本本倒出来。
-              AI 只整理、不替你编造。三种方式可混用。
+              {t.brainstorm.subtitle}
             </p>
           </div>
 
           <Card>
             <CardHeader className="pb-2">
               <div className="flex flex-wrap gap-2">
-                {TABS.map((t) => {
-                  const Icon = t.icon;
-                  const active = tab === t.id;
+                {tabs.map((tb) => {
+                  const Icon = tb.icon;
+                  const active = tab === tb.id;
                   return (
                     <button
-                      key={t.id}
+                      key={tb.id}
                       type="button"
-                      onClick={() => setTab(t.id)}
+                      onClick={() => setTab(tb.id)}
                       className={cn(
                         "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-sm transition-colors",
                         active
@@ -147,7 +155,7 @@ export default function BrainstormPage() {
                       )}
                     >
                       <Icon className="h-4 w-4" />
-                      {t.label}
+                      {tb.label}
                     </button>
                   );
                 })}
@@ -155,10 +163,7 @@ export default function BrainstormPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {tab === "voice" && (
-                <VoicePanel
-                  speech={speech}
-                  lang={lang}
-                />
+                <VoicePanel speech={speech} listenLangName={langName(lang, lang)} />
               )}
               {tab === "file" && (
                 <FilePanel
@@ -170,13 +175,13 @@ export default function BrainstormPage() {
               )}
               <div>
                 <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>累计原始素材（可继续编辑 / 增补）</span>
-                  <span>{rawInput.length} 字</span>
+                  <span>{t.brainstorm.rawLabel}</span>
+                  <span>{t.common.chars(rawInput.length)}</span>
                 </div>
                 <Textarea
                   value={rawInput}
                   onChange={(e) => setRawInput(e.target.value)}
-                  placeholder="在这里直接输入，或切换到上方录音 / 文件 tab 自动追加"
+                  placeholder={t.brainstorm.rawPlaceholder}
                   className="min-h-[280px] font-mono text-sm leading-relaxed"
                 />
                 {rawInput.length > 0 && (
@@ -185,7 +190,7 @@ export default function BrainstormPage() {
                     onClick={() => setRawInput("")}
                     className="mt-2 text-xs text-muted-foreground hover:text-destructive"
                   >
-                    清空
+                    {t.common.clear}
                   </button>
                 )}
               </div>
@@ -195,7 +200,7 @@ export default function BrainstormPage() {
           {error && (
             <Card className="border-destructive/40 bg-destructive/5">
               <CardContent className="pt-6 text-sm text-destructive">
-                生成失败：{error}
+                {t.common.error(error)}
               </CardContent>
             </Card>
           )}
@@ -209,12 +214,12 @@ export default function BrainstormPage() {
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  生成中（约 30-90s）...
+                  {t.brainstorm.submitLoading}
                 </>
               ) : experience ? (
-                "重新生成"
+                t.brainstorm.submitDone
               ) : (
-                "生成结构化经历"
+                t.brainstorm.submit
               )}
             </Button>
             <Button
@@ -223,7 +228,7 @@ export default function BrainstormPage() {
               className={cn(!experience && "pointer-events-none opacity-50")}
             >
               <Link href="/fit-check" className="gap-1">
-                下一步：匹配度检查
+                {t.brainstorm.nextBtn}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
@@ -236,46 +241,18 @@ export default function BrainstormPage() {
   );
 }
 
-function LangToggle({
-  lang,
-  onChange,
-}: {
-  lang: Lang;
-  onChange: (l: Lang) => void;
-}) {
-  return (
-    <div className="inline-flex rounded-md border border-input bg-background p-0.5">
-      {(["zh", "en"] as const).map((l) => (
-        <button
-          key={l}
-          type="button"
-          onClick={() => onChange(l)}
-          className={cn(
-            "rounded px-2.5 py-1 text-xs font-medium transition-colors",
-            lang === l
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground"
-          )}
-        >
-          {l === "zh" ? "中文" : "EN"}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function VoicePanel({
   speech,
-  lang,
+  listenLangName,
 }: {
   speech: ReturnType<typeof useSpeechRecognition>;
-  lang: Lang;
+  listenLangName: string;
 }) {
+  const t = useT();
   if (!speech.supported) {
     return (
       <div className="rounded-md border border-dashed border-input bg-muted/30 p-6 text-center text-sm text-muted-foreground">
-        当前浏览器不支持 Web Speech API。建议改用 Chrome / Edge / Safari，
-        或先在「上传文件」「直接输入」 tab 录入素材。
+        {t.brainstorm.voiceUnsupported}
       </div>
     );
   }
@@ -290,7 +267,11 @@ function VoicePanel({
             ? "bg-destructive text-destructive-foreground shadow-lg shadow-destructive/30 ring-4 ring-destructive/20"
             : "bg-primary text-primary-foreground hover:bg-primary/90"
         )}
-        aria-label={speech.listening ? "停止录音" : "开始录音"}
+        aria-label={
+          speech.listening
+            ? t.brainstorm.voiceStopAria
+            : t.brainstorm.voiceStartAria
+        }
       >
         {speech.listening ? (
           <MicOff className="h-8 w-8" />
@@ -300,8 +281,8 @@ function VoicePanel({
       </button>
       <div className="text-sm text-muted-foreground">
         {speech.listening
-          ? `正在收音（${lang === "zh" ? "中文" : "English"}）— 边说边追加到下方文本框`
-          : "点击开始录音；说完点击同一按钮停止"}
+          ? t.brainstorm.voiceListening(listenLangName)
+          : t.brainstorm.voiceIdle}
       </div>
       {speech.interim && (
         <div className="w-full rounded border border-input bg-background px-3 py-2 text-sm italic text-muted-foreground">
@@ -326,6 +307,7 @@ function FilePanel({
   dragOver: boolean;
   setDragOver: (v: boolean) => void;
 }) {
+  const t = useT();
   const inputRef = useRef<HTMLInputElement>(null);
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -352,9 +334,9 @@ function FilePanel({
       >
         <Upload className="h-6 w-6 text-muted-foreground" />
         <div>
-          拖拽文件到这里，或点击选择
+          {t.brainstorm.fileDrop}
           <span className="ml-1 text-xs text-muted-foreground">
-            （{ACCEPT_EXT.join(" / ")}，≤ 200KB）
+            （{t.brainstorm.fileHint}）
           </span>
         </div>
         <input
@@ -377,21 +359,64 @@ function FilePanel({
 }
 
 function ExperiencePreview({ doc }: { doc: ExperienceDocument }) {
+  const t = useT();
+  const lang = useAppStore((s) => s.lang);
+  const [docxBusy, setDocxBusy] = useState(false);
+  const [docxError, setDocxError] = useState<string | null>(null);
+  const downloadDocx = useCallback(async () => {
+    setDocxBusy(true);
+    setDocxError(null);
+    try {
+      const blob = await experienceToDocxBlob(doc, lang);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = experienceDocxFilename();
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setDocxError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDocxBusy(false);
+    }
+  }, [doc, lang]);
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>结构化经历预览</CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle>{t.brainstorm.previewTitle}</CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={downloadDocx}
+            disabled={docxBusy}
+            title={t.brainstorm.docxTooltip}
+          >
+            {docxBusy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {t.brainstorm.downloadDocx}
+          </Button>
+        </div>
+        {docxError && (
+          <div className="mt-1 text-xs text-destructive">
+            {t.brainstorm.docxError(docxError)}
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-5 text-sm">
         <section>
           <div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Summary
+            {t.brainstorm.section.summary}
           </div>
           <p className="leading-relaxed">{doc.summary}</p>
         </section>
         <section className="space-y-3">
           <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Items（{doc.items.length}）
+            {t.brainstorm.section.items(doc.items.length)}
           </div>
           {doc.items.map((it) => (
             <div
@@ -417,20 +442,26 @@ function ExperiencePreview({ doc }: { doc: ExperienceDocument }) {
               )}
               {it.rawNotes && (
                 <div className="mt-2 text-xs italic text-muted-foreground">
-                  备注：{it.rawNotes}
+                  {t.brainstorm.section.rawNotes}：{it.rawNotes}
                 </div>
               )}
             </div>
           ))}
         </section>
         <section className="grid gap-4 sm:grid-cols-2">
-          <SkillList title="Hard Skills" items={doc.skills.hard} />
-          <SkillList title="Soft Skills" items={doc.skills.soft} />
+          <SkillList
+            title={t.brainstorm.section.hardSkills}
+            items={doc.skills.hard}
+          />
+          <SkillList
+            title={t.brainstorm.section.softSkills}
+            items={doc.skills.soft}
+          />
         </section>
         {doc.languages.length > 0 && (
           <section>
             <div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Languages
+              {t.brainstorm.section.languages}
             </div>
             <div className="flex flex-wrap gap-1.5">
               {doc.languages.map((l, i) => (
@@ -447,13 +478,16 @@ function ExperiencePreview({ doc }: { doc: ExperienceDocument }) {
 }
 
 function SkillList({ title, items }: { title: string; items: string[] }) {
+  const t = useT();
   return (
     <div>
       <div className="mb-1 text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {title}
       </div>
       {items.length === 0 ? (
-        <div className="text-xs italic text-muted-foreground">（无）</div>
+        <div className="text-xs italic text-muted-foreground">
+          {t.brainstorm.section.empty}
+        </div>
       ) : (
         <div className="flex flex-wrap gap-1.5">
           {items.map((s, i) => (

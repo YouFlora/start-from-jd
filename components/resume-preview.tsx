@@ -1,6 +1,7 @@
 "use client";
 
 import type { ResumeData } from "@/types/resume";
+import { useT } from "@/lib/i18n";
 import { cn, isPlaceholder } from "@/lib/utils";
 
 const isMissing = isPlaceholder;
@@ -68,6 +69,7 @@ export function ResumePreview({ data }: { data: ResumeData }) {
 }
 
 function Header({ basics }: { basics: ResumeData["basics"] }) {
+  const t = useT();
   return (
     <header className="mb-2 border-b border-neutral-300 pb-2">
       <div className="flex items-baseline justify-between gap-3">
@@ -79,7 +81,7 @@ function Header({ basics }: { basics: ResumeData["basics"] }) {
             )}
             style={{ fontSize: "18pt" }}
           >
-            {isMissing(basics.name) ? "TBD · 候选人姓名" : basics.name}
+            {isMissing(basics.name) ? t.preview.tbdName : basics.name}
           </h1>
           <div className="mt-0.5 text-neutral-700" style={{ fontSize: "10.5pt" }}>
             {basics.title}
@@ -92,9 +94,10 @@ function Header({ basics }: { basics: ResumeData["basics"] }) {
 }
 
 function ContactLine({ basics }: { basics: ResumeData["basics"] }) {
+  const t = useT();
   const parts: { value: string; missing: boolean }[] = [
     {
-      value: isMissing(basics.email) ? "TBD · 联系邮箱" : basics.email,
+      value: isMissing(basics.email) ? t.preview.tbdEmail : basics.email,
       missing: isMissing(basics.email),
     },
   ];

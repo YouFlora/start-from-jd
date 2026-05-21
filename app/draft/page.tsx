@@ -8,11 +8,13 @@ import { ResumePreview } from "@/components/resume-preview";
 import { StepNav } from "@/components/step-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useT } from "@/lib/i18n";
 import { useAppStore } from "@/lib/store";
 import { apiHeaders, cn } from "@/lib/utils";
 import type { ResumeData } from "@/types/resume";
 
 export default function DraftPage() {
+  const t = useT();
   const lang = useAppStore((s) => s.lang);
   const experience = useAppStore((s) => s.experience);
   const jd = useAppStore((s) => s.jd);
@@ -43,13 +45,13 @@ export default function DraftPage() {
     } finally {
       setLoading(false);
     }
-  }, [experience, jd, lang, setResume]);
+  }, [experience, jd, lang, setResume, userKey]);
 
   const canSubmit = !!experience && !!jd && jd.trim().length >= 20;
 
   const missingPrereqs: string[] = [];
-  if (!experience) missingPrereqs.push("结构化经历（Step 0）");
-  if (!jd) missingPrereqs.push("目标 JD（Step 1）");
+  if (!experience) missingPrereqs.push(t.draft.prereqExperience);
+  if (!jd) missingPrereqs.push(t.draft.prereqJd);
 
   return (
     <>
@@ -59,20 +61,20 @@ export default function DraftPage() {
           <Button variant="ghost" size="sm" asChild>
             <Link href="/fit-check" className="gap-1">
               <ArrowLeft className="h-4 w-4" />
-              上一步
+              {t.common.prevStep}
             </Link>
           </Button>
           {resume && (
             <div className="flex items-center gap-3">
               <span className="text-xs text-muted-foreground">
-                打印对话框里取消勾选「页眉和页脚」、缩放设为 100%
+                {t.draft.printHint}
               </span>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => window.print()}
               >
-                打印 / 导出 PDF
+                {t.draft.printBtn}
               </Button>
             </div>
           )}
@@ -80,21 +82,17 @@ export default function DraftPage() {
 
         <div className="mx-auto max-w-4xl space-y-6 no-print">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">简历草稿</h1>
-            <p className="mt-2 text-muted-foreground">
-              基于已确认的经历 + JD，AI 生成单页 A4 简历初稿。缺失字段会标
-              MISSING，不替你编造。
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {t.draft.title}
+            </h1>
+            <p className="mt-2 text-muted-foreground">{t.draft.subtitle}</p>
           </div>
 
           {missingPrereqs.length > 0 && (
             <Card className="border-amber-500/40 bg-amber-500/5">
               <CardContent className="flex items-start gap-3 pt-6 text-sm">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                <div>
-                  缺少前置数据：{missingPrereqs.join(" / ")}。请先返回对应步骤
-                  完成。
-                </div>
+                <div>{t.draft.missingPrereqs(missingPrereqs.join(" / "))}</div>
               </CardContent>
             </Card>
           )}
@@ -102,7 +100,7 @@ export default function DraftPage() {
           {error && (
             <Card className="border-destructive/40 bg-destructive/5">
               <CardContent className="pt-6 text-sm text-destructive">
-                生成失败：{error}
+                {t.common.error(error)}
               </CardContent>
             </Card>
           )}
@@ -116,12 +114,12 @@ export default function DraftPage() {
               {loading ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  生成中（约 60-120s）...
+                  {t.draft.submitLoading}
                 </>
               ) : resume ? (
-                "重新生成"
+                t.draft.submitDone
               ) : (
-                "生成简历草稿"
+                t.draft.submit
               )}
             </Button>
             <Button
@@ -130,7 +128,7 @@ export default function DraftPage() {
               className={cn(!resume && "pointer-events-none opacity-50")}
             >
               <Link href="/critique" className="gap-1">
-                下一步：诊断
+                {t.draft.nextBtn}
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
@@ -152,16 +150,16 @@ export default function DraftPage() {
 }
 
 function MissingPanel({ items }: { items: string[] }) {
+  const t = useT();
   return (
     <Card className="border-amber-500/40 bg-amber-500/5">
       <CardHeader className="pb-2">
         <CardTitle className="text-base">
-          缺失字段（{items.length}）
+          {t.draft.missingTitle(items.length)}
         </CardTitle>
       </CardHeader>
       <CardContent className="text-sm text-muted-foreground">
-        AI 标记为 TBD 的项；这些不会被编造填充，需要你回到「头脑风暴」
-        补充原始素材，或在投递前手动补齐：
+        {t.draft.missingDesc}
         <ul className="ml-5 mt-2 list-disc space-y-1">
           {items.map((m, i) => (
             <li key={i}>{m.replace(/^MISSING(?=[:：\s])/, "TBD")}</li>
